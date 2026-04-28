@@ -514,9 +514,11 @@ fun buildConfig(
 
                 // 追加用户配置的 srs 规则集
                 if (rule.srsName.isNotBlank()) {
-                    generateRuleSet(listOf(rule.srsName), ruleSets)
+                    val srsInput = rule.srsName.trim()
+                    generateRuleSet(listOf(srsInput), ruleSets)
                     if (rule_set == null) rule_set = mutableListOf()
-                    rule_set.add(rule.srsName)
+                    // tag 与 generateRuleSet 保持一致：统一去掉 .srs 后缀
+                    rule_set.add(srsInput.removeSuffix(".srs"))
                 }
 
                 if (rule.port.isNotBlank()) {
