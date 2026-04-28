@@ -633,6 +633,16 @@ fun buildConfig(
             route.rule_set = route.rule_set.distinctBy { it.tag }
         }
 
+        // 设置 route final（tagMap 已完整构建）
+        route.final_ = when (DataStore.routeFinal) {
+            "-1" -> TAG_BYPASS
+            "0"  -> TAG_PROXY
+            else -> {
+                val id = DataStore.routeFinal.toLongOrNull() ?: 0L
+                if (id == proxy.id) TAG_PROXY else tagMap[id] ?: TAG_PROXY
+            }
+        }
+
         for (freedom in arrayOf(TAG_DIRECT, TAG_BYPASS)) outbounds.add(Outbound().apply {
             tag = freedom
             type = "direct"
@@ -698,7 +708,10 @@ fun buildConfig(
             })
         }
 
-        dns.final_ = if (forTest) "dns-direct" else "dns-remote"
+        dns.final_ = if (forTest) "dns-direct" else when (DataStore.routeFinal) {
+            "-1" -> "dns-direct"   // final=直连 → 直连DNS
+            else -> "dns-remote"   // final=代理/选择配置 → 远程DNS
+        }
 
         // dns object user rules
         if (enableDnsRouting) {

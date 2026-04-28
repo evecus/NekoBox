@@ -232,6 +232,9 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var routeSrsUrl  by profileCacheStore.string(Key.ROUTE_SRS_URL)
     var routeSrsType by profileCacheStore.string(Key.ROUTE_SRS_TYPE)
 
+    // 全局 route final，存持久化 store，默认代理(0)
+    var routeFinal by configurationStore.string(Key.ROUTE_FINAL) { "0" }
+
     var frontProxy by profileCacheStore.long(Key.GROUP_FRONT_PROXY + "Long")
     var landingProxy by profileCacheStore.long(Key.GROUP_LANDING_PROXY + "Long")
     var frontProxyTmp by profileCacheStore.stringToInt(Key.GROUP_FRONT_PROXY)
