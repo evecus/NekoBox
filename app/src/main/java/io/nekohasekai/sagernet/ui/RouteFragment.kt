@@ -17,7 +17,9 @@ import io.nekohasekai.sagernet.database.RuleEntity
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.databinding.LayoutEmptyRouteBinding
 import io.nekohasekai.sagernet.databinding.LayoutRouteItemBinding
+import android.app.Activity
 import io.nekohasekai.sagernet.databinding.LayoutRouteFinalBinding
+import androidx.activity.result.contract.ActivityResultContracts
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.widget.ListListener
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
@@ -28,6 +30,19 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
     lateinit var ruleListView: RecyclerView
     lateinit var ruleAdapter: RuleAdapter
     lateinit var undoManager: UndoSnackbarManager<RuleEntity>
+
+    val selectProfileForFinal = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { (resultCode, data) ->
+        if (resultCode == Activity.RESULT_OK) {
+            val profileId = data?.getLongExtra(ProfileSelectActivity.EXTRA_PROFILE_ID, 0L) ?: 0L
+            if (profileId > 0L) {
+                DataStore.routeFinal = profileId.toString()
+                ruleAdapter.notifyItemChanged(ruleAdapter.itemCount - 1)
+                runOnDefaultDispatcher { needReload() }
+            }
+        }
+    }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -296,7 +311,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
                 val current = when (DataStore.routeFinal) {
                     "-1" -> 1
                     "0"  -> 0
-                    else -> 0
+                    else -> 2  // 选择配置...
                 }
                 MaterialAlertDialogBuilder(activity)
                     .setTitle(R.string.route_final_title)
@@ -315,8 +330,10 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
                                 dialog.dismiss()
                             }
                             2 -> {
-                                // TODO: 选择配置...弹出节点选择器，暂存 profile id
                                 dialog.dismiss()
+                                selectProfileForFinal.launch(
+                                    Intent(activity, ProfileSelectActivity::class.java)
+                                )
                             }
                         }
                     }
