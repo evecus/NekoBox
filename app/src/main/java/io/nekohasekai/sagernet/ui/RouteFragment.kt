@@ -33,9 +33,9 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
 
     val selectProfileForFinal = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
-    ) { (resultCode, data) ->
-        if (resultCode == Activity.RESULT_OK) {
-            val profileId = data?.getLongExtra(ProfileSelectActivity.EXTRA_PROFILE_ID, 0L) ?: 0L
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val profileId = result.data?.getLongExtra(ProfileSelectActivity.EXTRA_PROFILE_ID, 0L) ?: 0L
             if (profileId > 0L) {
                 DataStore.routeFinal = profileId.toString()
                 ruleAdapter.notifyItemChanged(ruleAdapter.itemCount - 1)
