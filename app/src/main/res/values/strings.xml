@@ -140,12 +140,13 @@
     <string name="metered_summary">Hint system to treat VPN as metered</string>
     <string name="menu_route">Route</string>
     <string name="route_add">Create Route</string>
-    <string name="route_srs_name">Rule Set File Name (.srs)</string>
-    <string name="route_srs_url">Rule Set Download URL</string>
+    <string name="route_srs_name">SRS Rule Set Name</string>
+    <string name="route_srs_url">SRS Rule Set URL</string>
     <string name="route_srs_downloading">Downloading rule set file…</string>
     <string name="route_srs_download_success">Rule set downloaded successfully: %s</string>
     <string name="route_srs_download_failed">Rule set download failed: %s</string>
     <string name="route_srs_name_empty">Please enter a rule set file name first</string>
+    <string name="route_srs_type">SRS Rule Set Type</string>
     <string name="delete_route_prompt">Are you sure you want to remove this route?</string>
     <string name="route_name">Route Name</string>
     <string name="route_proxy">Proxy</string>

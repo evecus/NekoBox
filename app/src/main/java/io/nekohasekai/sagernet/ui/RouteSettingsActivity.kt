@@ -76,6 +76,7 @@ class RouteSettingsActivity(
         DataStore.routePackages = packages.joinToString("\n")
         DataStore.routeSrsName = srsName
         DataStore.routeSrsUrl = srsUrl
+        DataStore.routeSrsType = srsType
     }
 
     fun RuleEntity.serialize() {
@@ -97,6 +98,7 @@ class RouteSettingsActivity(
         packages = DataStore.routePackages.split("\n").filter { it.isNotBlank() }.toSet()
         srsName = DataStore.routeSrsName.trim()
         srsUrl  = DataStore.routeSrsUrl.trim()
+        srsType = DataStore.routeSrsType.trim()
 
         if (DataStore.editingId == 0L) {
             enabled = true

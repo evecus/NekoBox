@@ -221,6 +221,19 @@
         -->
     </string-array>
 
+
+    <string-array name="srs_type_entry">
+        <item>未设置</item>
+        <item>domain</item>
+        <item>ip</item>
+    </string-array>
+
+    <string-array name="srs_type_value">
+        <item></item>
+        <item>domain</item>
+        <item>ip</item>
+    </string-array>
+
     <string-array name="route_protocol_entry">
         <item>TCP and UDP</item>
         <item>TCP</item>

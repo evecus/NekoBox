@@ -557,6 +557,11 @@ fun buildConfig(
                     return DNSRule_DefaultOptions().apply {
                         if (uidList.isNotEmpty()) user_id = uidList
                         domainList?.let { makeSingBoxRule(it) }
+                        // srs domain 规则集：把 tag 加入 DNS rule 的 rule_set
+                        if (rule.srsType == "domain" && rule.srsName.isNotBlank()) {
+                            val srsTag = rule.srsName.trim().removeSuffix(".srs")
+                            rule_set = mutableListOf(srsTag)
+                        }
                     }
                 }
 
@@ -579,6 +584,17 @@ fun buildConfig(
                         userDNSRuleList += makeDnsRuleObj().apply {
                             server = "dns-block"
                             disable_cache = true
+                        }
+                    }
+
+                    else -> {
+                        // 选择配置... 实际走代理，DNS 同样走远程
+                        if (useFakeDns) userDNSRuleList += makeDnsRuleObj().apply {
+                            server = "dns-fake"
+                            inbound = listOf("tun-in")
+                        }
+                        userDNSRuleList += makeDnsRuleObj().apply {
+                            server = "dns-remote"
                         }
                     }
                 }

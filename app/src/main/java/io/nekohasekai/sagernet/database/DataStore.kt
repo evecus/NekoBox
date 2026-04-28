@@ -230,6 +230,7 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var routePackages by profileCacheStore.string(Key.ROUTE_PACKAGES)
     var routeSrsName by profileCacheStore.string(Key.ROUTE_SRS_NAME)
     var routeSrsUrl  by profileCacheStore.string(Key.ROUTE_SRS_URL)
+    var routeSrsType by profileCacheStore.string(Key.ROUTE_SRS_TYPE)
 
     var frontProxy by profileCacheStore.long(Key.GROUP_FRONT_PROXY + "Long")
     var landingProxy by profileCacheStore.long(Key.GROUP_LANDING_PROXY + "Long")
