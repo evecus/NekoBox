@@ -32,6 +32,9 @@ jobs:
           path: ~/.gradle
           key: gradle-oss-${{ hashFiles('**/*.gradle.kts') }}
 
+      - name: Decode Keystore
+        run: echo "${{ secrets.SIGNING_KEY }}" | base64 --decode > app/release.keystor
+
       - name: Gradle Build
         env:
           BUILD_PLUGIN: none
