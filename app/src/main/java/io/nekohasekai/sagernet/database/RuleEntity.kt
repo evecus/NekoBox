@@ -25,6 +25,10 @@ data class RuleEntity(
     var protocol: String = "",
     var outbound: Long = 0,
     var packages: Set<String> = emptySet(),
+    @ColumnInfo(defaultValue = "")
+    var srsName: String = "",
+    @ColumnInfo(defaultValue = "")
+    var srsUrl: String = "",
 ) : Parcelable {
 
     fun displayName(): String {
@@ -44,6 +48,7 @@ data class RuleEntity(
         if (packages.isNotEmpty()) summary += app.getString(
             R.string.apps_message, packages.size
         ) + "\n"
+        if (srsName.isNotBlank()) summary += "srs: $srsName\n"
         val lines = summary.trim().split("\n")
         return if (lines.size > 3) {
             lines.subList(0, 3).joinToString("\n", postfix = "\n...")

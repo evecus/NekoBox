@@ -512,6 +512,13 @@ fun buildConfig(
 
                 if (rule_set != null) generateRuleSet(rule_set, ruleSets)
 
+                // 追加用户配置的 srs 规则集
+                if (rule.srsName.isNotBlank()) {
+                    generateRuleSet(listOf(rule.srsName), ruleSets)
+                    if (rule_set == null) rule_set = mutableListOf()
+                    rule_set.add(rule.srsName)
+                }
+
                 if (rule.port.isNotBlank()) {
                     port = mutableListOf<Int>()
                     port_range = mutableListOf<String>()

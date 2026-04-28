@@ -1,5 +1,6 @@
 package moe.matsuri.nb4a
 
+import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
 import moe.matsuri.nb4a.SingBoxOptions.RuleSet
 
@@ -88,6 +89,16 @@ fun generateRuleSet(ruleSetString: List<String>, ruleSet: MutableList<RuleSet>) 
                     tag = it
                     format = "binary"
                     path = it
+                })
+            }
+
+            it.endsWith(".srs") -> {
+                val srsFile = java.io.File(SagerNet.application.externalAssets, it)
+                ruleSet.add(RuleSet().apply {
+                    type = "local"
+                    tag = it
+                    format = "binary"
+                    path = srsFile.absolutePath
                 })
             }
         }

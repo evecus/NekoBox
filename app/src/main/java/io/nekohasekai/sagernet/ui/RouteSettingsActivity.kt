@@ -74,6 +74,8 @@ class RouteSettingsActivity(
             else -> 3
         }
         DataStore.routePackages = packages.joinToString("\n")
+        DataStore.routeSrsName = srsName
+        DataStore.routeSrsUrl = srsUrl
     }
 
     fun RuleEntity.serialize() {
@@ -93,6 +95,8 @@ class RouteSettingsActivity(
             else -> DataStore.routeOutboundRule
         }
         packages = DataStore.routePackages.split("\n").filter { it.isNotBlank() }.toSet()
+        srsName = DataStore.routeSrsName.trim()
+        srsUrl  = DataStore.routeSrsUrl.trim()
 
         if (DataStore.editingId == 0L) {
             enabled = true
@@ -208,6 +212,54 @@ class RouteSettingsActivity(
         }
     }
 
+    private suspend fun downloadSrsFile(srsName: String, srsUrl: String) {
+        onMainDispatcher {
+            Toast.makeText(
+                this@RouteSettingsActivity,
+                getString(R.string.route_srs_downloading),
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+
+        val outFile = java.io.File(SagerNet.application.externalAssets, srsName)
+        outFile.parentFile?.mkdirs()
+
+        val client = libcore.Libcore.newHttpClient().apply {
+            modernTLS()
+            keepAlive()
+            trySocks5(DataStore.mixedPort)
+        }
+
+        try {
+            val response = client.newRequest().apply {
+                setURL(srsUrl)
+            }.execute()
+
+            val tmpFile = java.io.File(outFile.parentFile, "$srsName.tmp")
+            response.writeTo(tmpFile.canonicalPath)
+            tmpFile.renameTo(outFile)
+
+            onMainDispatcher {
+                Toast.makeText(
+                    this@RouteSettingsActivity,
+                    getString(R.string.route_srs_download_success, srsName),
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        } catch (e: Exception) {
+            Logs.e(e)
+            onMainDispatcher {
+                MaterialAlertDialogBuilder(this@RouteSettingsActivity)
+                    .setTitle(R.string.route_srs_download_failed.let { getString(it, srsName) })
+                    .setMessage(e.message ?: e.toString())
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show()
+            }
+        } finally {
+            client.close()
+        }
+    }
+
     companion object {
         const val EXTRA_ROUTE_ID = "id"
         const val EXTRA_PACKAGE_NAME = "pkg"
@@ -281,6 +333,25 @@ class RouteSettingsActivity(
             }
             ProfileManager.updateRule(entity.apply { serialize() })
         }
+
+        // 保存完成后，如果填写了 srsUrl 则拉取文件
+        val srsName = DataStore.routeSrsName.trim()
+        val srsUrl  = DataStore.routeSrsUrl.trim()
+        if (srsUrl.isNotBlank()) {
+            if (srsName.isBlank()) {
+                onMainDispatcher {
+                    Toast.makeText(
+                        this@RouteSettingsActivity,
+                        getString(R.string.route_srs_name_empty),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+                finish()
+                return
+            }
+            downloadSrsFile(srsName, srsUrl)
+        }
+
         finish()
 
     }

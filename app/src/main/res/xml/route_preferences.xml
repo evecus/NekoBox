@@ -60,5 +60,15 @@
             app:key="routeOutbound"
             app:title="outbound"
             app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_rule_folder_24"
+            app:key="routeSrsName"
+            app:title="@string/route_srs_name"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_rule_folder_24"
+            app:key="routeSrsUrl"
+            app:title="@string/route_srs_url"
+            app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 </PreferenceScreen>
