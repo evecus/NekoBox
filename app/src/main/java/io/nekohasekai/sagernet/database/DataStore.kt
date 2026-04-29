@@ -129,6 +129,10 @@ object DataStore : OnPreferenceDataStoreChangeListener {
         get() = getLocalPort(Key.MIXED_PORT, 2080)
         set(value) = saveLocalPort(Key.MIXED_PORT, value)
 
+    var tproxyPort: Int
+        get() = getLocalPort(Key.TPROXY_PORT, 1536)
+        set(value) = saveLocalPort(Key.TPROXY_PORT, value)
+
     fun initGlobal() {
         if (configurationStore.getString(Key.MIXED_PORT) == null) {
             mixedPort = mixedPort

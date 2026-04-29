@@ -15,6 +15,9 @@ object Key {
     const val SERVICE_MODE = "serviceMode"
     const val MODE_VPN = "vpn"
     const val MODE_PROXY = "proxy"
+    const val MODE_TPROXY = "tproxy"
+    const val MODE_REDIR  = "redir"
+    const val TPROXY_PORT = "tproxyPort"
 
     const val GLOBAL_CUSTOM_CONFIG = "globalCustomConfig"
 

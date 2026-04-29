@@ -1,0 +1,86 @@
+#!/system/bin/sh
+# NekoBox TProxy script (TCP+UDP transparent proxy via TPROXY)
+# Requires root. App UID is passed as $APP_UID, port as $TPROXY_PORT.
+
+TPROXY_PORT="${TPROXY_PORT:-1536}"
+APP_UID="${APP_UID:-0}"
+MARK_VALUE=200
+TABLE_ID=200
+CHAIN="NEKOBOX_TP"
+
+log() { echo "[nekobox.tproxy] $*" >&2; }
+
+start() {
+    log "Starting TProxy rules (port=$TPROXY_PORT uid=$APP_UID mark=$MARK_VALUE)"
+
+    # routing: marked packets go to loopback
+    ip rule add fwmark $MARK_VALUE table $TABLE_ID pref $TABLE_ID 2>/dev/null || true
+    ip route add local 0.0.0.0/0 dev lo table $TABLE_ID 2>/dev/null || true
+    echo 1 > /proc/sys/net/ipv4/ip_forward 2>/dev/null || true
+
+    # mangle PREROUTING chain
+    iptables -t mangle -N $CHAIN 2>/dev/null
+    iptables -t mangle -F $CHAIN
+
+    # bypass private / loopback
+    iptables -t mangle -A $CHAIN -d 127.0.0.0/8     -j RETURN
+    iptables -t mangle -A $CHAIN -d 10.0.0.0/8      -j RETURN
+    iptables -t mangle -A $CHAIN -d 172.16.0.0/12   -j RETURN
+    iptables -t mangle -A $CHAIN -d 192.168.0.0/16  -j RETURN
+    iptables -t mangle -A $CHAIN -d 169.254.0.0/16  -j RETURN
+    iptables -t mangle -A $CHAIN -d 224.0.0.0/4     -j RETURN
+    iptables -t mangle -A $CHAIN -d 240.0.0.0/4     -j RETURN
+
+    # TPROXY tcp + udp to port
+    iptables -t mangle -A $CHAIN -p tcp -j TPROXY --on-port $TPROXY_PORT --tproxy-mark $MARK_VALUE
+    iptables -t mangle -A $CHAIN -p udp -j TPROXY --on-port $TPROXY_PORT --tproxy-mark $MARK_VALUE
+
+    # hook into PREROUTING
+    iptables -t mangle -I PREROUTING -p tcp -j $CHAIN
+    iptables -t mangle -I PREROUTING -p udp -j $CHAIN
+
+    # OUTPUT chain: re-mark local traffic (exclude app itself to avoid loop)
+    iptables -t mangle -N ${CHAIN}_OUT 2>/dev/null
+    iptables -t mangle -F ${CHAIN}_OUT
+
+    # bypass app's own traffic (by UID) — prevents loopback
+    if [ -n "$APP_UID" ] && [ "$APP_UID" != "0" ]; then
+        iptables -t mangle -A ${CHAIN}_OUT -m owner --uid-owner $APP_UID -j RETURN
+    fi
+    iptables -t mangle -A ${CHAIN}_OUT -d 127.0.0.0/8    -j RETURN
+    iptables -t mangle -A ${CHAIN}_OUT -d 10.0.0.0/8     -j RETURN
+    iptables -t mangle -A ${CHAIN}_OUT -d 172.16.0.0/12  -j RETURN
+    iptables -t mangle -A ${CHAIN}_OUT -d 192.168.0.0/16 -j RETURN
+    iptables -t mangle -A ${CHAIN}_OUT -p tcp -j MARK --set-mark $MARK_VALUE
+    iptables -t mangle -A ${CHAIN}_OUT -p udp -j MARK --set-mark $MARK_VALUE
+
+    iptables -t mangle -I OUTPUT -p tcp -j ${CHAIN}_OUT
+    iptables -t mangle -I OUTPUT -p udp -j ${CHAIN}_OUT
+
+    log "TProxy rules applied"
+}
+
+stop() {
+    log "Removing TProxy rules"
+
+    iptables -t mangle -D PREROUTING -p tcp -j $CHAIN 2>/dev/null || true
+    iptables -t mangle -D PREROUTING -p udp -j $CHAIN 2>/dev/null || true
+    iptables -t mangle -F $CHAIN 2>/dev/null || true
+    iptables -t mangle -X $CHAIN 2>/dev/null || true
+
+    iptables -t mangle -D OUTPUT -p tcp -j ${CHAIN}_OUT 2>/dev/null || true
+    iptables -t mangle -D OUTPUT -p udp -j ${CHAIN}_OUT 2>/dev/null || true
+    iptables -t mangle -F ${CHAIN}_OUT 2>/dev/null || true
+    iptables -t mangle -X ${CHAIN}_OUT 2>/dev/null || true
+
+    ip rule del fwmark $MARK_VALUE table $TABLE_ID pref $TABLE_ID 2>/dev/null || true
+    ip route del local 0.0.0.0/0 dev lo table $TABLE_ID 2>/dev/null || true
+
+    log "TProxy rules removed"
+}
+
+case "$1" in
+    start) start ;;
+    stop)  stop  ;;
+    *) echo "Usage: $0 {start|stop}"; exit 1 ;;
+esac

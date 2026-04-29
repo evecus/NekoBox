@@ -209,16 +209,14 @@
     <string-array name="service_modes">
         <item>@string/service_mode_vpn</item>
         <item>@string/service_mode_proxy</item>
-        <!--
-                <item>@string/service_mode_transproxy</item>
-        -->
+        <item>@string/service_mode_tproxy</item>
+        <item>@string/service_mode_redir</item>
     </string-array>
     <string-array name="service_mode_values">
         <item>vpn</item>
         <item>proxy</item>
-        <!--
-                <item>transproxy</item>
-        -->
+        <item>tproxy</item>
+        <item>redir</item>
     </string-array>
 
 

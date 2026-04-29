@@ -39,7 +39,9 @@ import moe.matsuri.nb4a.utils.Util
 import moe.matsuri.nb4a.utils.listByLineOrComma
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
-const val TAG_MIXED = "mixed-in"
+const val TAG_MIXED  = "mixed-in"
+const val TAG_TPROXY = "tproxy-in"
+const val TAG_REDIR  = "redir-in"
 
 const val TAG_PROXY = "proxy"
 const val TAG_DIRECT = "direct"
@@ -132,7 +134,9 @@ fun buildConfig(
     val userDNSRuleList = mutableListOf<DNSRule_DefaultOptions>()
     val domainListDNSDirectForce = mutableListOf<String>()
     val bypassDNSBeans = hashSetOf<AbstractBean>()
-    val isVPN = DataStore.serviceMode == Key.MODE_VPN
+    val isVPN       = DataStore.serviceMode == Key.MODE_VPN
+    val isTransProxy = DataStore.serviceMode == Key.MODE_TPROXY
+    val isRedir      = DataStore.serviceMode == Key.MODE_REDIR
     val bind = if (!forTest && DataStore.allowAccess) "0.0.0.0" else LOCALHOST
     val remoteDns = DataStore.remoteDns.split("\n")
         .mapNotNull { dns -> dns.trim().takeIf { it.isNotBlank() && !it.startsWith("#") } }
@@ -224,6 +228,25 @@ fun buildConfig(
                     }
                 }
             })
+            if (isTransProxy) {
+                inbounds.add(Inbound_TProxyOptions().apply {
+                    type = "tproxy"
+                    tag = TAG_TPROXY
+                    listen = "0.0.0.0"
+                    listen_port = DataStore.tproxyPort
+                    sniff = needSniff
+                    sniff_override_destination = needSniffOverride
+                })
+            } else if (isRedir) {
+                inbounds.add(Inbound_RedirectOptions().apply {
+                    type = "redirect"
+                    tag = TAG_REDIR
+                    listen = "0.0.0.0"
+                    listen_port = DataStore.tproxyPort
+                    sniff = needSniff
+                    sniff_override_destination = needSniffOverride
+                })
+            }
             inbounds.add(Inbound_MixedOptions().apply {
                 type = "mixed"
                 tag = TAG_MIXED

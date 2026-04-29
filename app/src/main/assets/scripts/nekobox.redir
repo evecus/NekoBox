@@ -1,0 +1,69 @@
+#!/system/bin/sh
+# NekoBox Redirect script (TCP only transparent proxy via REDIRECT)
+# Requires root. App UID is passed as $APP_UID, port as $TPROXY_PORT.
+
+TPROXY_PORT="${TPROXY_PORT:-1536}"
+APP_UID="${APP_UID:-0}"
+CHAIN="NEKOBOX_RD"
+
+log() { echo "[nekobox.redir] $*" >&2; }
+
+start() {
+    log "Starting Redirect rules (port=$TPROXY_PORT uid=$APP_UID)"
+
+    # nat PREROUTING chain
+    iptables -t nat -N $CHAIN 2>/dev/null
+    iptables -t nat -F $CHAIN
+
+    # bypass private / loopback
+    iptables -t nat -A $CHAIN -d 127.0.0.0/8     -j RETURN
+    iptables -t nat -A $CHAIN -d 10.0.0.0/8      -j RETURN
+    iptables -t nat -A $CHAIN -d 172.16.0.0/12   -j RETURN
+    iptables -t nat -A $CHAIN -d 192.168.0.0/16  -j RETURN
+    iptables -t nat -A $CHAIN -d 169.254.0.0/16  -j RETURN
+    iptables -t nat -A $CHAIN -d 224.0.0.0/4     -j RETURN
+    iptables -t nat -A $CHAIN -d 240.0.0.0/4     -j RETURN
+
+    # REDIRECT tcp to port
+    iptables -t nat -A $CHAIN -p tcp -j REDIRECT --to-ports $TPROXY_PORT
+
+    # hook into PREROUTING
+    iptables -t nat -I PREROUTING -p tcp -j $CHAIN
+
+    # OUTPUT chain: redirect local TCP (exclude app itself)
+    iptables -t nat -N ${CHAIN}_OUT 2>/dev/null
+    iptables -t nat -F ${CHAIN}_OUT
+
+    if [ -n "$APP_UID" ] && [ "$APP_UID" != "0" ]; then
+        iptables -t nat -A ${CHAIN}_OUT -m owner --uid-owner $APP_UID -j RETURN
+    fi
+    iptables -t nat -A ${CHAIN}_OUT -d 127.0.0.0/8    -j RETURN
+    iptables -t nat -A ${CHAIN}_OUT -d 10.0.0.0/8     -j RETURN
+    iptables -t nat -A ${CHAIN}_OUT -d 172.16.0.0/12  -j RETURN
+    iptables -t nat -A ${CHAIN}_OUT -d 192.168.0.0/16 -j RETURN
+    iptables -t nat -A ${CHAIN}_OUT -p tcp -j REDIRECT --to-ports $TPROXY_PORT
+
+    iptables -t nat -I OUTPUT -p tcp -j ${CHAIN}_OUT
+
+    log "Redirect rules applied"
+}
+
+stop() {
+    log "Removing Redirect rules"
+
+    iptables -t nat -D PREROUTING -p tcp -j $CHAIN 2>/dev/null || true
+    iptables -t nat -F $CHAIN 2>/dev/null || true
+    iptables -t nat -X $CHAIN 2>/dev/null || true
+
+    iptables -t nat -D OUTPUT -p tcp -j ${CHAIN}_OUT 2>/dev/null || true
+    iptables -t nat -F ${CHAIN}_OUT 2>/dev/null || true
+    iptables -t nat -X ${CHAIN}_OUT 2>/dev/null || true
+
+    log "Redirect rules removed"
+}
+
+case "$1" in
+    start) start ;;
+    stop)  stop  ;;
+    *) echo "Usage: $0 {start|stop}"; exit 1 ;;
+esac
