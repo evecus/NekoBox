@@ -142,8 +142,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
 
         serviceMode.setOnPreferenceChangeListener { _, newValue ->
             val mode = newValue as String
-            if ((mode == io.nekohasekai.sagernet.Key.MODE_TPROXY ||
-                 mode == io.nekohasekai.sagernet.Key.MODE_REDIR) && !hasRoot) {
+            if (mode == io.nekohasekai.sagernet.Key.MODE_REDIR && !hasRoot) {
                 com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
                     .setMessage(R.string.service_mode_root_unavailable)
                     .setPositiveButton(android.R.string.ok, null)

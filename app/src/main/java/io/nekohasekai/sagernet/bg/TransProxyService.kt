@@ -44,8 +44,7 @@ class TransProxyService : Service(), BaseService.Interface {
     }
 
     private fun runIptables(action: String) {
-        val isRedir = DataStore.serviceMode == Key.MODE_REDIR
-        val scriptName = if (isRedir) "nekobox.redir" else "nekobox.tproxy"
+        val scriptName = "nekobox.redir"
         val scriptFile = File(filesDir, scriptName)
 
         try {

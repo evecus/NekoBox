@@ -40,7 +40,6 @@ import moe.matsuri.nb4a.utils.listByLineOrComma
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 const val TAG_MIXED  = "mixed-in"
-const val TAG_TPROXY = "tproxy-in"
 const val TAG_REDIR  = "redir-in"
 
 const val TAG_PROXY = "proxy"
@@ -135,7 +134,6 @@ fun buildConfig(
     val domainListDNSDirectForce = mutableListOf<String>()
     val bypassDNSBeans = hashSetOf<AbstractBean>()
     val isVPN       = DataStore.serviceMode == Key.MODE_VPN
-    val isTransProxy = DataStore.serviceMode == Key.MODE_TPROXY
     val isRedir      = DataStore.serviceMode == Key.MODE_REDIR
     val bind = if (!forTest && DataStore.allowAccess) "0.0.0.0" else LOCALHOST
     val remoteDns = DataStore.remoteDns.split("\n")
@@ -228,16 +226,7 @@ fun buildConfig(
                     }
                 }
             })
-            if (isTransProxy) {
-                inbounds.add(Inbound_TProxyOptions().apply {
-                    type = "tproxy"
-                    tag = TAG_TPROXY
-                    listen = "127.0.0.1"
-                    listen_port = DataStore.tproxyPort
-                    sniff = needSniff
-                    sniff_override_destination = needSniffOverride
-                })
-            } else if (isRedir) {
+            if (isRedir) {
                 inbounds.add(Inbound_RedirectOptions().apply {
                     type = "redirect"
                     tag = TAG_REDIR
@@ -594,7 +583,7 @@ fun buildConfig(
                     }
 
                     0L -> {
-                        if (useFakeDns) userDNSRuleList += makeDnsRuleObj().apply {
+                        if (useFakeDns && isVPN) userDNSRuleList += makeDnsRuleObj().apply {
                             server = "dns-fake"
                             inbound = listOf("tun-in")
                         }
@@ -612,7 +601,7 @@ fun buildConfig(
 
                     else -> {
                         // 选择配置... 实际走代理，DNS 同样走远程
-                        if (useFakeDns) userDNSRuleList += makeDnsRuleObj().apply {
+                        if (useFakeDns && isVPN) userDNSRuleList += makeDnsRuleObj().apply {
                             server = "dns-fake"
                             inbound = listOf("tun-in")
                         }
@@ -779,7 +768,7 @@ fun buildConfig(
                     tag = "dns-fake"
                     strategy = "ipv4_only"
                 })
-                dns.rules.add(DNSRule_DefaultOptions().apply {
+                if (isVPN) dns.rules.add(DNSRule_DefaultOptions().apply {
                     inbound = listOf("tun-in")
                     server = "dns-fake"
                     disable_cache = true

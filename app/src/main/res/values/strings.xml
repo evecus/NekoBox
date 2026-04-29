@@ -51,7 +51,6 @@
     <!-- misc -->
     <string name="service_mode">Service Mode</string>
     <string name="service_mode_proxy">Proxy only</string>
-    <string name="service_mode_tproxy">TProxy (TCP+UDP, root)</string>
     <string name="service_mode_redir">Redirect (TCP, root)</string>
     <string name="service_mode_root_unavailable">TProxy/Redirect require root</string>
     <string name="service_mode_vpn" translatable="false">VPN</string>
