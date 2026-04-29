@@ -232,7 +232,7 @@ fun buildConfig(
                 inbounds.add(Inbound_TProxyOptions().apply {
                     type = "tproxy"
                     tag = TAG_TPROXY
-                    listen = "0.0.0.0"
+                    listen = "127.0.0.1"
                     listen_port = DataStore.tproxyPort
                     sniff = needSniff
                     sniff_override_destination = needSniffOverride
@@ -241,7 +241,7 @@ fun buildConfig(
                 inbounds.add(Inbound_RedirectOptions().apply {
                     type = "redirect"
                     tag = TAG_REDIR
-                    listen = "0.0.0.0"
+                    listen = "127.0.0.1"
                     listen_port = DataStore.tproxyPort
                     sniff = needSniff
                     sniff_override_destination = needSniffOverride

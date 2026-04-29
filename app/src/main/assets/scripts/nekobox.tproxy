@@ -11,18 +11,17 @@ CHAIN="NEKOBOX_TP"
 log() { echo "[nekobox.tproxy] $*" >&2; }
 
 start() {
-    log "Starting TProxy rules (port=$TPROXY_PORT uid=$APP_UID mark=$MARK_VALUE)"
+    log "Starting TProxy rules (port=$TPROXY_PORT uid=$APP_UID)"
 
     # routing: marked packets go to loopback
     ip rule add fwmark $MARK_VALUE table $TABLE_ID pref $TABLE_ID 2>/dev/null || true
     ip route add local 0.0.0.0/0 dev lo table $TABLE_ID 2>/dev/null || true
     echo 1 > /proc/sys/net/ipv4/ip_forward 2>/dev/null || true
 
-    # mangle PREROUTING chain
+    # mangle PREROUTING: 转发其他设备流量到 127.0.0.1:port
     iptables -t mangle -N $CHAIN 2>/dev/null
     iptables -t mangle -F $CHAIN
 
-    # bypass private / loopback
     iptables -t mangle -A $CHAIN -d 127.0.0.0/8     -j RETURN
     iptables -t mangle -A $CHAIN -d 10.0.0.0/8      -j RETURN
     iptables -t mangle -A $CHAIN -d 172.16.0.0/12   -j RETURN
@@ -31,19 +30,18 @@ start() {
     iptables -t mangle -A $CHAIN -d 224.0.0.0/4     -j RETURN
     iptables -t mangle -A $CHAIN -d 240.0.0.0/4     -j RETURN
 
-    # TPROXY tcp + udp to port
-    iptables -t mangle -A $CHAIN -p tcp -j TPROXY --on-port $TPROXY_PORT --tproxy-mark $MARK_VALUE
-    iptables -t mangle -A $CHAIN -p udp -j TPROXY --on-port $TPROXY_PORT --tproxy-mark $MARK_VALUE
+    # TPROXY 到 127.0.0.1（sing-box 监听 loopback）
+    iptables -t mangle -A $CHAIN -p tcp -j TPROXY --on-ip 127.0.0.1 --on-port $TPROXY_PORT --tproxy-mark $MARK_VALUE
+    iptables -t mangle -A $CHAIN -p udp -j TPROXY --on-ip 127.0.0.1 --on-port $TPROXY_PORT --tproxy-mark $MARK_VALUE
 
-    # hook into PREROUTING
     iptables -t mangle -I PREROUTING -p tcp -j $CHAIN
     iptables -t mangle -I PREROUTING -p udp -j $CHAIN
 
-    # OUTPUT chain: re-mark local traffic (exclude app itself to avoid loop)
+    # OUTPUT: 本机流量打 mark，经路由表走 loopback 再被 tproxy 接管
     iptables -t mangle -N ${CHAIN}_OUT 2>/dev/null
     iptables -t mangle -F ${CHAIN}_OUT
 
-    # bypass app's own traffic (by UID) — prevents loopback
+    # 排除 App 自身流量防回环
     if [ -n "$APP_UID" ] && [ "$APP_UID" != "0" ]; then
         iptables -t mangle -A ${CHAIN}_OUT -m owner --uid-owner $APP_UID -j RETURN
     fi

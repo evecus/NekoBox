@@ -11,11 +11,10 @@ log() { echo "[nekobox.redir] $*" >&2; }
 start() {
     log "Starting Redirect rules (port=$TPROXY_PORT uid=$APP_UID)"
 
-    # nat PREROUTING chain
+    # nat PREROUTING: REDIRECT 到 127.0.0.1:port（本机 loopback）
     iptables -t nat -N $CHAIN 2>/dev/null
     iptables -t nat -F $CHAIN
 
-    # bypass private / loopback
     iptables -t nat -A $CHAIN -d 127.0.0.0/8     -j RETURN
     iptables -t nat -A $CHAIN -d 10.0.0.0/8      -j RETURN
     iptables -t nat -A $CHAIN -d 172.16.0.0/12   -j RETURN
@@ -24,13 +23,12 @@ start() {
     iptables -t nat -A $CHAIN -d 224.0.0.0/4     -j RETURN
     iptables -t nat -A $CHAIN -d 240.0.0.0/4     -j RETURN
 
-    # REDIRECT tcp to port
+    # REDIRECT 到本机 port（内核自动转到 127.0.0.1）
     iptables -t nat -A $CHAIN -p tcp -j REDIRECT --to-ports $TPROXY_PORT
 
-    # hook into PREROUTING
     iptables -t nat -I PREROUTING -p tcp -j $CHAIN
 
-    # OUTPUT chain: redirect local TCP (exclude app itself)
+    # OUTPUT: 本机 TCP 流量也走代理，排除 App 自身
     iptables -t nat -N ${CHAIN}_OUT 2>/dev/null
     iptables -t nat -F ${CHAIN}_OUT
 
