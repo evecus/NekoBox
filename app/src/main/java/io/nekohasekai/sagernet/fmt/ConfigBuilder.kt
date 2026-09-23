@@ -242,6 +242,17 @@ fun buildConfig(
                         sniff_override_destination = needSniffOverride
                     }
                 })
+                // DNS inbound — receives redirected port-53 traffic from iptables
+                inbounds.add(Inbound_DirectOptions().apply {
+                    type = "direct"
+                    tag = TAG_DNS_IN
+                    listen = "127.0.0.1"
+                    listen_port = 10336
+                    if (!isTransProxy) {
+                        sniff = needSniff
+                        sniff_override_destination = needSniffOverride
+                    }
+                })
             }
             if (isTproxy) {
                 inbounds.add(Inbound_TProxyOptions().apply {
@@ -286,11 +297,11 @@ fun buildConfig(
             auto_detect_interface = true
             rules = mutableListOf()
             rule_set = mutableListOf()
-            // tproxy mode: mark sing-box outbound packets so iptables can skip them.
-            // Without this, sing-box's own outgoing connections hit NEKOBOX_TP_OUT,
-            // get marked 200, and are looped back into the tproxy inbound.
-            // We use mark 100 (0x64) — distinct from the redirect mark 200 (0xc8).
-            if (isTproxy) default_mark = 0x64
+            // redir/tproxy mode: mark sing-box outbound packets so iptables can skip them.
+            // Without this, sing-box's own outgoing connections hit the OUTPUT chain rules,
+            // get redirected back into the inbound, and loop forever.
+            // We use mark 100 (0x64) — distinct from the tproxy redirect mark 200 (0xc8).
+            if (isTransProxy) default_mark = 0x64
         }
 
         // returns outbound tag
