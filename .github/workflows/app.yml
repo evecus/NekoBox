@@ -4,13 +4,8 @@ on:
     inputs:
       tag:
         description: "Release Tag"
+        default: "v1.0.4"
         required: true
-      publish:
-        description: "Publish: If want ignore"
-        required: false
-      play:
-        description: "Play: If want ignore"
-        required: false
 
 jobs:
   build:
