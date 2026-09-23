@@ -745,16 +745,16 @@ fun buildConfig(
         })
 
         dns.servers.add(DNSServerOptions().apply {
-            address = "local"
+            // Fixed bootstrap resolver. The system "local" type is unreliable for the
+            // root standalone sing-box (Android exposes no /etc/resolv.conf to it).
+            address = "udp://223.5.5.5"
             tag = "dns-local"
-            detour = TAG_DIRECT
         })
 
         directDNS.firstOrNull().let {
             dns.servers.add(DNSServerOptions().apply {
                 address = it ?: throw Exception("No direct DNS, check your settings!")
                 tag = "dns-direct"
-                detour = TAG_DIRECT
                 address_resolver = "dns-local"
                 strategy = autoDnsDomainStrategy(SingBoxOptionsUtil.domainStrategy(tag))
             })
@@ -765,6 +765,9 @@ fun buildConfig(
             if (!forTest) dns.servers.add(DNSServerOptions().apply {
                 address = it ?: throw Exception("No remote DNS, check your settings!")
                 tag = "dns-remote"
+                // Remote DNS must leave through the proxy outbound — without detour
+                // the query dials directly and gets polluted/blocked.
+                detour = TAG_PROXY
                 address_resolver = "dns-direct"
                 strategy = autoDnsDomainStrategy(SingBoxOptionsUtil.domainStrategy(tag))
             })
