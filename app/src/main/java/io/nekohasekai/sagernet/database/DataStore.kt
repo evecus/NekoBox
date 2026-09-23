@@ -235,6 +235,7 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var routeSrsName by profileCacheStore.string(Key.ROUTE_SRS_NAME)
     var routeSrsUrl  by profileCacheStore.string(Key.ROUTE_SRS_URL)
     var routeSrsType by profileCacheStore.string(Key.ROUTE_SRS_TYPE)
+    var routeSrsAutoUpdate by profileCacheStore.boolean(Key.ROUTE_SRS_AUTO_UPDATE)
 
     // 全局 route final，存持久化 store，默认代理(0)
     var routeFinal by configurationStore.string(Key.ROUTE_FINAL) { "0" }
