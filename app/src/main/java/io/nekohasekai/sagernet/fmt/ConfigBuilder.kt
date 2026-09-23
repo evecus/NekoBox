@@ -286,6 +286,11 @@ fun buildConfig(
             auto_detect_interface = true
             rules = mutableListOf()
             rule_set = mutableListOf()
+            // tproxy mode: mark sing-box outbound packets so iptables can skip them.
+            // Without this, sing-box's own outgoing connections hit NEKOBOX_TP_OUT,
+            // get marked 200, and are looped back into the tproxy inbound.
+            // We use mark 100 (0x64) — distinct from the redirect mark 200 (0xc8).
+            if (isTproxy) default_mark = 0x64
         }
 
         // returns outbound tag
