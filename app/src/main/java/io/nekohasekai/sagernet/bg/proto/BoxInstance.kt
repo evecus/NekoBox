@@ -4,6 +4,7 @@ import android.os.SystemClock
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.bg.AbstractInstance
 import io.nekohasekai.sagernet.bg.GuardedProcessPool
+import io.nekohasekai.sagernet.bg.SingBoxBinary
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.ConfigBuildResult
@@ -37,7 +38,10 @@ abstract class BoxInstance(
     open lateinit var processes: GuardedProcessPool
     private var cacheFiles = ArrayList<File>()
     fun isInitialized(): Boolean {
-        return ::config.isInitialized && ::box.isInitialized
+        if (!::config.isInitialized) return false
+        // standalone redir/tproxy has no JNI box instance
+        if (SingBoxBinary.isStandaloneMode()) return true
+        return ::box.isInitialized
     }
 
     protected fun initPlugin(name: String): PluginManager.InitResult {
@@ -49,6 +53,10 @@ abstract class BoxInstance(
     }
 
     protected open suspend fun loadConfig() {
+        if (SingBoxBinary.isStandaloneMode()) {
+            // Root redir/tproxy: run external sing-box binary, skip JNI libcore box
+            return
+        }
         box = Libcore.newSingBoxInstance(config.config, LocalResolverImpl)
     }
 
@@ -199,7 +207,25 @@ abstract class BoxInstance(
             }
         }
 
-        box.start()
+        if (SingBoxBinary.isStandaloneMode()) {
+            launchStandalone()
+        } else {
+            box.start()
+        }
+    }
+
+    /** Run packaged libsingbox.so under root for redir/tproxy. */
+    private fun launchStandalone() {
+        val app = SagerNet.application
+        val bin = SingBoxBinary.ensureBinary(app)
+        val cfgDir = File(app.filesDir, "singbox_standalone").apply { mkdirs() }
+        val cfgFile = File(cfgDir, "config.json")
+        cfgFile.writeText(config.config)
+        cacheFiles.add(cfgFile)
+
+        // su -c so process has CAP_NET_ADMIN for TPROXY
+        val cmd = "\"${bin.absolutePath}\" run -c \"${cfgFile.absolutePath}\""
+        processes.start(listOf("su", "-c", cmd))
     }
 
     @Suppress("EXPERIMENTAL_API_USAGE")
@@ -217,6 +243,7 @@ abstract class BoxInstance(
         if (::box.isInitialized) {
             box.close()
         }
+        // standalone process is killed via GuardedProcessPool / Executable.killAll
     }
 
 }
