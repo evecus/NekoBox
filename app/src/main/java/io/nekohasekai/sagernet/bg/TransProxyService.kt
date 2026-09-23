@@ -8,7 +8,6 @@ import android.util.Log
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
-import java.io.File
 
 class TransProxyService : Service(), BaseService.Interface {
     override val data = BaseService.Data(this)
@@ -50,35 +49,28 @@ class TransProxyService : Service(), BaseService.Interface {
     }
 
     private fun runIptables(action: String) {
-        val scriptName = when (DataStore.serviceMode) {
-            Key.MODE_TPROXY -> "nekobox.tproxy"
-            else -> "nekobox.redir"
-        }
-        val scriptFile = File(filesDir, scriptName)
-
-        try {
-            assets.open("scripts/$scriptName").use { input ->
-                scriptFile.outputStream().use { output -> input.copyTo(output) }
-            }
-            scriptFile.setExecutable(true)
-        } catch (e: Exception) {
-            Log.e(tag, "Failed to copy $scriptName: ${e.message}")
-            return
-        }
-
+        val tproxyPort = DataStore.tproxyPort
+        val dnsPort = 10336
         val appUid = applicationInfo.uid
-        val cmd = "APP_UID=$appUid TPROXY_PORT=${DataStore.tproxyPort} DNS_PORT=10336 sh ${scriptFile.absolutePath} $action"
+
+        val script = when (DataStore.serviceMode) {
+            Key.MODE_TPROXY -> IptablesRules.tproxy(action, tproxyPort, dnsPort, appUid)
+            else            -> IptablesRules.redir(action, tproxyPort, dnsPort, appUid)
+        }
+
         try {
-            val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", cmd))
+            // Feed the script to `su` via stdin — single root grant, no temp file needed.
+            val proc = Runtime.getRuntime().exec(arrayOf("su"))
+            proc.outputStream.bufferedWriter().use { it.write(script) }
             val exitCode = proc.waitFor()
             val err = proc.errorStream.bufferedReader().readText()
             if (exitCode != 0) {
-                Log.e(tag, "$scriptName $action failed (exit=$exitCode): $err")
+                Log.e(tag, "iptables $action failed (exit=$exitCode): $err")
             } else {
-                Log.i(tag, "$scriptName $action ok")
+                Log.i(tag, "iptables $action ok")
             }
         } catch (e: Exception) {
-            Log.e(tag, "exec su failed: ${e.message}")
+            Log.e(tag, "runIptables $action failed: ${e.message}")
         }
     }
 }
