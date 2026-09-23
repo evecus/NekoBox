@@ -789,27 +789,16 @@ fun buildConfig(
             // port to DNS_PORT (10336) before traffic reaches dns-in, and the direct
             // inbound does NOT recover the original destination — so port/protocol rules
             // can never match dns-in traffic (previously this made DNS loop through the
-            // direct outbound back into dns-in). Hijack by inbound tag instead; keep the
-            // port-53 rule for traffic entering redir-in/tproxy-in/mixed-in with the
-            // original destination port intact (e.g. hotspot clients).
+            // direct outbound back into dns-in). Hijack by inbound tag only; the
+            // port-53 / protocol-dns pair is intentionally omitted here.
             val transRules = mutableListOf<Rule_DefaultOptions>()
             transRules.add(Rule_DefaultOptions().apply {
                 inbound = listOf(TAG_DNS_IN)
                 action = "hijack-dns"
             })
-            transRules.add(Rule_DefaultOptions().apply {
-                port = listOf(53)
-                action = "hijack-dns"
-            })
             if (needSniff) {
-                // protocol:dns must be evaluated AFTER the sniff action, and only when
-                // sniffing is enabled (otherwise protocol is never populated)
                 transRules.add(Rule_DefaultOptions().apply {
                     action = "sniff"
-                })
-                transRules.add(Rule_DefaultOptions().apply {
-                    protocol = listOf("dns")
-                    action = "hijack-dns"
                 })
             }
             route.rules.addAll(0, transRules)
