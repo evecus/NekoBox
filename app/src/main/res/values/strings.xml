@@ -1,1 +1,5 @@
-PLACEHOLDER
+<?xml version="1.0" encoding="utf-8"?>
+<!-- RESTORED - see next commit for full file -->
+<resources>
+    <string name="app_name" translatable="false">NekoBox</string>
+</resources>
