@@ -190,7 +190,6 @@ abstract class BoxInstance(
         }
     }
 
-    /** Run packaged libsingbox.so under root for redir/tproxy. */
     private fun launchStandalone() {
         val app = SagerNet.application
         val bin = SingBoxBinary.ensureBinary(app)
@@ -209,10 +208,6 @@ abstract class BoxInstance(
         processes.start(listOf("su", "-c", cmd))
     }
 
-    /**
-     * Strip legacy inbound fields (1.13+) and migrate DNS servers to typed format (1.12+).
-     * @see https://sing-box.sagernet.org/migration/
-     */
     private fun sanitizeConfigForStandalone(raw: String): String {
         val root = JSONObject(raw)
 
@@ -244,11 +239,18 @@ abstract class BoxInstance(
             val servers = dns.optJSONArray("servers")
             if (servers != null) {
                 val migrated = JSONArray()
+                var firstStrategy: String? = null
                 for (i in 0 until servers.length()) {
                     val s = servers.optJSONObject(i) ?: continue
+                    val st = s.optString("strategy", "")
+                    if (st.isNotEmpty() && firstStrategy == null) firstStrategy = st
+                    s.remove("strategy")
                     migrated.put(migrateDnsServer(s, fakeipObj))
                 }
                 dns.put("servers", migrated)
+                if (!dns.has("strategy") && firstStrategy != null) {
+                    dns.put("strategy", firstStrategy)
+                }
             }
             dns.remove("fakeip")
             val dnsRules = dns.optJSONArray("rules")
@@ -267,13 +269,13 @@ abstract class BoxInstance(
             if (s.has("address_resolver") && !s.has("domain_resolver")) {
                 s.put("domain_resolver", s.remove("address_resolver"))
             }
+            s.remove("strategy")
             return s
         }
         val address = s.optString("address", "")
         val out = JSONObject()
         if (s.has("tag")) out.put("tag", s.get("tag"))
         if (s.has("detour")) out.put("detour", s.get("detour"))
-        if (s.has("strategy")) out.put("strategy", s.get("strategy"))
         val resolver = when {
             s.has("domain_resolver") -> s.get("domain_resolver")
             s.has("address_resolver") -> s.get("address_resolver")
