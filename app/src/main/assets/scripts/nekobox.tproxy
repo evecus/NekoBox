@@ -1,24 +1,38 @@
 #!/system/bin/sh
 # NekoBox TProxy script (TCP+UDP transparent proxy via TPROXY)
-# Requires root. App UID is passed as $APP_UID, port as $TPROXY_PORT.
+# Requires root. Env: APP_UID, TPROXY_PORT, DNS_PORT
 
 TPROXY_PORT="${TPROXY_PORT:-1536}"
+DNS_PORT="${DNS_PORT:-5353}"
 APP_UID="${APP_UID:-0}"
 MARK_VALUE=200
 TABLE_ID=200
 CHAIN="NEKOBOX_TP"
+CHAIN_DNS="NEKOBOX_DNS"
 
 log() { echo "[nekobox.tproxy] $*" >&2; }
 
 start() {
-    log "Starting TProxy rules (port=$TPROXY_PORT uid=$APP_UID)"
+    log "Starting TProxy rules (port=$TPROXY_PORT dns=$DNS_PORT uid=$APP_UID)"
 
     # routing: marked packets go to loopback
     ip rule add fwmark $MARK_VALUE table $TABLE_ID pref $TABLE_ID 2>/dev/null || true
     ip route add local 0.0.0.0/0 dev lo table $TABLE_ID 2>/dev/null || true
     echo 1 > /proc/sys/net/ipv4/ip_forward 2>/dev/null || true
 
-    # mangle PREROUTING: 转发其他设备流量到 127.0.0.1:port
+    # ---- DNS REDIRECT (nat) → sing-box dns-in ----
+    iptables -t nat -N $CHAIN_DNS 2>/dev/null
+    iptables -t nat -F $CHAIN_DNS
+    if [ -n "$APP_UID" ] && [ "$APP_UID" != "0" ]; then
+        iptables -t nat -A $CHAIN_DNS -m owner --uid-owner $APP_UID -j RETURN
+    fi
+    iptables -t nat -A $CHAIN_DNS -p udp --dport 53 -j REDIRECT --to-ports $DNS_PORT
+    iptables -t nat -A $CHAIN_DNS -p tcp --dport 53 -j REDIRECT --to-ports $DNS_PORT
+    iptables -t nat -I OUTPUT -j $CHAIN_DNS
+    iptables -t nat -I PREROUTING -p udp --dport 53 -j REDIRECT --to-ports $DNS_PORT
+    iptables -t nat -I PREROUTING -p tcp --dport 53 -j REDIRECT --to-ports $DNS_PORT
+
+    # ---- mangle PREROUTING: other device traffic → TPROXY ----
     iptables -t mangle -N $CHAIN 2>/dev/null
     iptables -t mangle -F $CHAIN
 
@@ -30,18 +44,16 @@ start() {
     iptables -t mangle -A $CHAIN -d 224.0.0.0/4     -j RETURN
     iptables -t mangle -A $CHAIN -d 240.0.0.0/4     -j RETURN
 
-    # TPROXY 到 127.0.0.1（sing-box 监听 loopback）
     iptables -t mangle -A $CHAIN -p tcp -j TPROXY --on-ip 127.0.0.1 --on-port $TPROXY_PORT --tproxy-mark $MARK_VALUE
     iptables -t mangle -A $CHAIN -p udp -j TPROXY --on-ip 127.0.0.1 --on-port $TPROXY_PORT --tproxy-mark $MARK_VALUE
 
     iptables -t mangle -I PREROUTING -p tcp -j $CHAIN
     iptables -t mangle -I PREROUTING -p udp -j $CHAIN
 
-    # OUTPUT: 本机流量打 mark，经路由表走 loopback 再被 tproxy 接管
+    # ---- OUTPUT: mark local traffic (exclude app self) ----
     iptables -t mangle -N ${CHAIN}_OUT 2>/dev/null
     iptables -t mangle -F ${CHAIN}_OUT
 
-    # 排除 App 自身流量防回环
     if [ -n "$APP_UID" ] && [ "$APP_UID" != "0" ]; then
         iptables -t mangle -A ${CHAIN}_OUT -m owner --uid-owner $APP_UID -j RETURN
     fi
@@ -60,6 +72,12 @@ start() {
 
 stop() {
     log "Removing TProxy rules"
+
+    iptables -t nat -D OUTPUT -j $CHAIN_DNS 2>/dev/null || true
+    iptables -t nat -D PREROUTING -p udp --dport 53 -j REDIRECT --to-ports $DNS_PORT 2>/dev/null || true
+    iptables -t nat -D PREROUTING -p tcp --dport 53 -j REDIRECT --to-ports $DNS_PORT 2>/dev/null || true
+    iptables -t nat -F $CHAIN_DNS 2>/dev/null || true
+    iptables -t nat -X $CHAIN_DNS 2>/dev/null || true
 
     iptables -t mangle -D PREROUTING -p tcp -j $CHAIN 2>/dev/null || true
     iptables -t mangle -D PREROUTING -p udp -j $CHAIN 2>/dev/null || true
