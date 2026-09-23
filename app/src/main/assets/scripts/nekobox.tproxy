@@ -7,6 +7,7 @@ DNS_PORT="${DNS_PORT:-10336}"
 APP_UID="${APP_UID:-0}"
 MARK_VALUE=200
 TABLE_ID=200
+SING_MARK=100        # default_mark set in sing-box route config (0x64)
 CHAIN="NEKOBOX_TP"
 CHAIN_DNS="NEKOBOX_DNS"
 
@@ -36,6 +37,8 @@ start() {
     iptables -t mangle -N $CHAIN 2>/dev/null
     iptables -t mangle -F $CHAIN
 
+    # skip packets already marked by sing-box (default_mark=SING_MARK) — avoids loopback
+    iptables -t mangle -A $CHAIN -m mark --mark $SING_MARK -j RETURN
     iptables -t mangle -A $CHAIN -d 127.0.0.0/8     -j RETURN
     iptables -t mangle -A $CHAIN -d 10.0.0.0/8      -j RETURN
     iptables -t mangle -A $CHAIN -d 172.16.0.0/12   -j RETURN
@@ -54,6 +57,8 @@ start() {
     iptables -t mangle -N ${CHAIN}_OUT 2>/dev/null
     iptables -t mangle -F ${CHAIN}_OUT
 
+    # skip sing-box's own outbound packets (marked with default_mark) — core anti-loop rule
+    iptables -t mangle -A ${CHAIN}_OUT -m mark --mark $SING_MARK -j RETURN
     if [ -n "$APP_UID" ] && [ "$APP_UID" != "0" ]; then
         iptables -t mangle -A ${CHAIN}_OUT -m owner --uid-owner $APP_UID -j RETURN
     fi
