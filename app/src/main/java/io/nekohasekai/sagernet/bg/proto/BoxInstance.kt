@@ -220,11 +220,19 @@ abstract class BoxInstance(
         val bin = SingBoxBinary.ensureBinary(app)
         val cfgDir = File(app.filesDir, "singbox_standalone").apply { mkdirs() }
         val cfgFile = File(cfgDir, "config.json")
+        val logFile = File(cfgDir, "sing-box.log")
         cfgFile.writeText(config.config)
+        // keep config across restart; log rotated each start
+        logFile.writeText("")
         cacheFiles.add(cfgFile)
 
-        // su -c so process has CAP_NET_ADMIN for TPROXY
-        val cmd = "\"${bin.absolutePath}\" run -c \"${cfgFile.absolutePath}\""
+        // Workdir = externalAssets so relative rule_set / srs paths resolve
+        val workDir = app.getExternalFilesDir(null) ?: app.filesDir
+        // Single shell line for Magisk/KernelSU su; redirect stderr for diagnosis
+        val cmd = "cd '${workDir.absolutePath}' && " +
+            "exec '${bin.absolutePath}' run -c '${cfgFile.absolutePath}' " +
+            ">>'${logFile.absolutePath}' 2>&1"
+        Logs.i("standalone sing-box: $cmd")
         processes.start(listOf("su", "-c", cmd))
     }
 
