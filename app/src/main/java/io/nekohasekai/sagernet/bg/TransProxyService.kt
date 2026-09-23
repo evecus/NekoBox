@@ -44,7 +44,10 @@ class TransProxyService : Service(), BaseService.Interface {
     }
 
     private fun runIptables(action: String) {
-        val scriptName = "nekobox.redir"
+        val scriptName = when (DataStore.serviceMode) {
+            Key.MODE_TPROXY -> "nekobox.tproxy"
+            else -> "nekobox.redir"
+        }
         val scriptFile = File(filesDir, scriptName)
 
         try {
@@ -58,7 +61,7 @@ class TransProxyService : Service(), BaseService.Interface {
         }
 
         val appUid = applicationInfo.uid
-        val cmd = "APP_UID=$appUid TPROXY_PORT=${DataStore.tproxyPort} sh ${scriptFile.absolutePath} $action"
+        val cmd = "APP_UID=$appUid TPROXY_PORT=${DataStore.tproxyPort} DNS_PORT=5353 sh ${scriptFile.absolutePath} $action"
         try {
             val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", cmd))
             val exitCode = proc.waitFor()
