@@ -1,1 +1,11 @@
-SEE_FILE_/tmp/good_strings_en.xml
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">NekoBox</string>
+    <string name="app_name_long" translatable="false">NekoBox for Android</string>
+    <string name="route_srs_auto_update">Auto update SRS rule set</string>
+    <string name="route_srs_auto_update_summary">Update every 24 hours when enabled</string>
+    <string name="route_srs_type">SRS Rule Set Type</string>
+    <string name="route_srs_name">SRS Rule Set Name</string>
+    <string name="route_srs_url">SRS Rule Set URL</string>
+    <string name="error_title">Error</string>
+</resources>
