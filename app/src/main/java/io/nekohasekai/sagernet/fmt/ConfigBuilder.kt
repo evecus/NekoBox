@@ -258,7 +258,7 @@ fun buildConfig(
                     type = "direct"
                     tag = TAG_DNS_IN
                     listen = "127.0.0.1"
-                    listen_port = 5353
+                    listen_port = 10336
                     if (!isTransProxy) {
                         sniff = needSniff
                         sniff_override_destination = needSniffOverride
