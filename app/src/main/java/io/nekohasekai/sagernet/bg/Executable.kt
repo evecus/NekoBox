@@ -29,7 +29,18 @@ object Executable {
                 Os.kill(process.name.toInt(), OsConstants.SIGKILL)
                 Logs.w("SIGKILL ${exe.name} (${process.name}) succeed")
             } catch (e: ErrnoException) {
-                if (e.errno != OsConstants.ESRCH) {
+                if (e.errno == OsConstants.EPERM) {
+                    // Process is owned by root (standalone redir/tproxy mode).
+                    // Os.kill() is blocked by permission; fall back to `su -c kill`.
+                    try {
+                        Runtime.getRuntime()
+                            .exec(arrayOf("su", "-c", "kill -KILL ${process.name}"))
+                            .waitFor()
+                        Logs.w("su SIGKILL ${exe.name} (${process.name}) sent")
+                    } catch (ex: Exception) {
+                        Logs.w("su SIGKILL ${exe.name} (${process.name}) failed: ${ex.message}")
+                    }
+                } else if (e.errno != OsConstants.ESRCH) {
                     Logs.w("SIGKILL ${exe.absolutePath} (${process.name}) failed")
                     Logs.w(e)
                 }
