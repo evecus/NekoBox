@@ -77,6 +77,7 @@ class RouteSettingsActivity(
         DataStore.routeSrsName = srsName
         DataStore.routeSrsUrl = srsUrl
         DataStore.routeSrsType = srsType
+        DataStore.routeSrsAutoUpdate = srsAutoUpdate
     }
 
     fun RuleEntity.serialize() {
@@ -99,6 +100,7 @@ class RouteSettingsActivity(
         srsName = DataStore.routeSrsName.trim()
         srsUrl  = DataStore.routeSrsUrl.trim()
         srsType = DataStore.routeSrsType.trim()
+        srsAutoUpdate = DataStore.routeSrsAutoUpdate
 
         if (DataStore.editingId == 0L) {
             enabled = true
@@ -352,7 +354,17 @@ class RouteSettingsActivity(
                 return
             }
             downloadSrsFile(srsName, srsUrl)
+            // 手动/保存触发下载成功后更新时间戳
+            val ruleId = DataStore.editingId
+            if (ruleId != 0L) {
+                SagerDatabase.rulesDao.getById(ruleId)?.let { rule ->
+                    rule.srsLastUpdated = System.currentTimeMillis() / 1000L
+                    SagerDatabase.rulesDao.updateRule(rule)
+                }
+            }
         }
+
+        io.nekohasekai.sagernet.bg.SrsRuleSetUpdater.reconfigureUpdater()
 
         finish()
 
