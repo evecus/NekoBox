@@ -1,8 +1,15 @@
 #!/bin/bash
 
+# Dispatch to buildScript/**.sh based on path arguments.
+# e.g. ./run init action gradle  ->  buildScript/init/action/gradle.sh
+#
+# Match by existence (-f), NOT -x: git mode bits are easy to lose when
+# committing from Windows, which made this fail on CI with "exec: : not found".
+# The target is run via `exec bash` so the executable bit never matters.
+
 EXEC=""
 TARGET="buildScript"
-declare -A PARAMS
+declare -a PARAMS
 declare -i INDEX=0
 
 for e in $@; do
@@ -10,12 +17,17 @@ for e in $@; do
   PARAMS[$INDEX]=$e
   INDEX=$INDEX+1
   shift
-  if [ -x "${TARGET}.sh" ]; then
+  if [ -f "${TARGET}.sh" ]; then
     EXEC="${TARGET}.sh"
     PARAMS=()
     INDEX=0
   fi
 done
 
-echo ">> $EXEC"
-exec "$EXEC" $PARAMS
+if [ -z "$EXEC" ]; then
+  echo ">> no script matched: buildScript/$*/.sh not found" >&2
+  exit 1
+fi
+
+echo ">> $EXEC ${PARAMS[@]}"
+exec bash "$EXEC" "${PARAMS[@]}"
