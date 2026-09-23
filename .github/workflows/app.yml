@@ -26,6 +26,24 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
+      # Standalone sing-box binaries for root redir/tproxy (built by core.yml).
+      # Placed under assets so runtime can extract by ABI without loading as JNI.
+      - name: Download libsingbox.so binaries from Release
+        run: |
+          set -xeuo pipefail
+          mkdir -p app/src/main/assets/singbox/arm64-v8a \
+                   app/src/main/assets/singbox/armeabi-v7a \
+                   app/src/main/assets/singbox/x86_64 \
+                   app/src/main/assets/singbox/x86
+          gh release download libcore-latest --pattern "libsingbox-*.so" --dir /tmp/singbox-so
+          cp /tmp/singbox-so/libsingbox-arm64-v8a.so    app/src/main/assets/singbox/arm64-v8a/libsingbox.so
+          cp /tmp/singbox-so/libsingbox-armeabi-v7a.so  app/src/main/assets/singbox/armeabi-v7a/libsingbox.so
+          cp /tmp/singbox-so/libsingbox-x86_64.so       app/src/main/assets/singbox/x86_64/libsingbox.so
+          cp /tmp/singbox-so/libsingbox-x86.so          app/src/main/assets/singbox/x86/libsingbox.so
+          find app/src/main/assets/singbox -type f -ls
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
       - name: Gradle cache
         uses: actions/cache@v4
         with:
