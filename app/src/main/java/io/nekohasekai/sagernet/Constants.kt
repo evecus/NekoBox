@@ -134,6 +134,7 @@ object Key {
     const val ROUTE_SRS_NAME = "routeSrsName"
     const val ROUTE_SRS_URL  = "routeSrsUrl"
     const val ROUTE_SRS_TYPE = "routeSrsType"
+    const val ROUTE_SRS_AUTO_UPDATE = "routeSrsAutoUpdate"
     const val ROUTE_FINAL   = "routeFinal"
 
     const val GROUP_NAME = "groupName"
