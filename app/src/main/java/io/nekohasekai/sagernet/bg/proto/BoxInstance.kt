@@ -39,6 +39,9 @@ abstract class BoxInstance(
     val externalInstances = hashMapOf<Int, AbstractInstance>()
     open lateinit var processes: GuardedProcessPool
     private var cacheFiles = ArrayList<File>()
+    // PID of the root-owned libsingbox.so process in standalone (redir/tproxy) mode.
+    // process.destroy() only kills the `su` wrapper; we need `su -c kill` for the child.
+    @Volatile private var standalonePid: Int = -1
     fun isInitialized(): Boolean {
         if (!::config.isInitialized) return false
         if (SingBoxBinary.isStandaloneMode()) return true
@@ -153,13 +156,29 @@ abstract class BoxInstance(
         val cfgDir = File(app.filesDir, "singbox_standalone").apply { mkdirs() }
         val cfgFile = File(cfgDir, "config.json")
         val logFile = File(cfgDir, "sing-box.log")
+        val pidFile = File(cfgDir, "sing-box.pid")
         cfgFile.writeText(sanitizeConfigForStandalone(config.config))
         logFile.writeText("")
+        pidFile.delete()
         cacheFiles.add(cfgFile)
         val workDir = app.getExternalFilesDir(null) ?: app.filesDir
-        val cmd = "cd '${workDir.absolutePath}' && exec '${bin.absolutePath}' run -c '${cfgFile.absolutePath}' >>'${logFile.absolutePath}' 2>&1"
+        // Write the real PID to pidFile before exec-ing, so close() can `su -c kill` it.
+        // We use a small sh wrapper: write $$, then exec into sing-box (no extra process left).
+        val cmd = "cd '${workDir.absolutePath}' && echo \$\$ > '${pidFile.absolutePath}' && exec '${bin.absolutePath}' run -c '${cfgFile.absolutePath}' >>'${logFile.absolutePath}' 2>&1"
         Logs.i("standalone sing-box: $cmd")
         processes.start(listOf("su", "-c", cmd))
+        // Read back the PID (give the su shell up to 2 s to write it)
+        for (i in 0 until 20) {
+            val text = runCatching { pidFile.readText().trim() }.getOrNull()
+            val pid = text?.toIntOrNull()
+            if (pid != null && pid > 0) {
+                standalonePid = pid
+                Logs.i("standalone sing-box pid=$pid")
+                break
+            }
+            Thread.sleep(100)
+        }
+        if (standalonePid < 0) Logs.w("standalone sing-box: could not read pid from $pidFile")
     }
 
     private fun sanitizeConfigForStandalone(raw: String): String {
@@ -321,6 +340,32 @@ abstract class BoxInstance(
     override fun close() {
         for (instance in externalInstances.values) runCatching { instance.close() }
         cacheFiles.removeAll { it.delete(); true }
+        // In standalone (redir/tproxy) mode the sing-box process runs as root via `su`.
+        // process.destroy() only reaches the `su` wrapper; the root child may survive.
+        // Kill it explicitly with `su -c kill` before tearing down the GuardedProcessPool.
+        val pid = standalonePid
+        if (pid > 0) {
+            standalonePid = -1
+            try {
+                val killProc = Runtime.getRuntime().exec(arrayOf("su", "-c", "kill -TERM $pid"))
+                killProc.waitFor()
+                // Give it up to 1 s to exit gracefully, then SIGKILL
+                var exited = false
+                for (i in 0 until 10) {
+                    Thread.sleep(100)
+                    val checkProc = Runtime.getRuntime().exec(arrayOf("su", "-c", "kill -0 $pid"))
+                    if (checkProc.waitFor() != 0) { exited = true; break }
+                }
+                if (!exited) {
+                    Runtime.getRuntime().exec(arrayOf("su", "-c", "kill -KILL $pid")).waitFor()
+                    Logs.w("standalone sing-box pid=$pid did not exit after SIGTERM, sent SIGKILL")
+                } else {
+                    Logs.i("standalone sing-box pid=$pid terminated cleanly")
+                }
+            } catch (e: Exception) {
+                Logs.w("failed to kill standalone sing-box pid=$pid: ${e.message}")
+            }
+        }
         if (::processes.isInitialized) processes.close(GlobalScope + Dispatchers.IO)
         if (::box.isInitialized) box.close()
     }
