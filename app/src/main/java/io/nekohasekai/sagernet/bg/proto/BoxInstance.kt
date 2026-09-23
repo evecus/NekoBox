@@ -24,6 +24,8 @@ import libcore.BoxInstance
 import libcore.Libcore
 import moe.matsuri.nb4a.net.LocalResolverImpl
 import java.io.File
+import org.json.JSONArray
+import org.json.JSONObject
 
 abstract class BoxInstance(
     val profile: ProxyEntity
@@ -221,19 +223,48 @@ abstract class BoxInstance(
         val cfgDir = File(app.filesDir, "singbox_standalone").apply { mkdirs() }
         val cfgFile = File(cfgDir, "config.json")
         val logFile = File(cfgDir, "sing-box.log")
-        cfgFile.writeText(config.config)
-        // keep config across restart; log rotated each start
+        // sing-box 1.13+ removed inbound sniff/domain_strategy; migrate to route actions
+        cfgFile.writeText(sanitizeConfigForStandalone(config.config))
         logFile.writeText("")
         cacheFiles.add(cfgFile)
 
-        // Workdir = externalAssets so relative rule_set / srs paths resolve
         val workDir = app.getExternalFilesDir(null) ?: app.filesDir
-        // Single shell line for Magisk/KernelSU su; redirect stderr for diagnosis
         val cmd = "cd '${workDir.absolutePath}' && " +
             "exec '${bin.absolutePath}' run -c '${cfgFile.absolutePath}' " +
             ">>'${logFile.absolutePath}' 2>&1"
         Logs.i("standalone sing-box: $cmd")
         processes.start(listOf("su", "-c", cmd))
+    }
+
+    /**
+     * Strip legacy inbound fields removed in sing-box 1.13 and inject route sniff action.
+     * See: https://sing-box.sagernet.org/migration/#migrate-legacy-inbound-fields-to-rule-actions
+     */
+    private fun sanitizeConfigForStandalone(raw: String): String {
+        val root = JSONObject(raw)
+        val legacyKeys = listOf(
+            "sniff", "sniff_override_destination", "sniff_timeout", "domain_strategy"
+        )
+        var hadSniff = false
+        val inbounds = root.optJSONArray("inbounds")
+        if (inbounds != null) {
+            for (i in 0 until inbounds.length()) {
+                val ib = inbounds.optJSONObject(i) ?: continue
+                if (ib.optBoolean("sniff", false)) hadSniff = true
+                for (k in legacyKeys) ib.remove(k)
+            }
+        }
+        if (hadSniff) {
+            val route = root.optJSONObject("route") ?: JSONObject().also { root.put("route", it) }
+            val rules = route.optJSONArray("rules") ?: JSONArray().also { route.put("rules", it) }
+            // prepend sniff action (runs before other rules)
+            val sniffRule = JSONObject().put("action", "sniff")
+            val newRules = JSONArray()
+            newRules.put(sniffRule)
+            for (i in 0 until rules.length()) newRules.put(rules.get(i))
+            route.put("rules", newRules)
+        }
+        return root.toString()
     }
 
     @Suppress("EXPERIMENTAL_API_USAGE")
