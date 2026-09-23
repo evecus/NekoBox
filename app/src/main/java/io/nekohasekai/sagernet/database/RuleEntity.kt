@@ -31,6 +31,10 @@ data class RuleEntity(
     var srsUrl: String = "",
     @ColumnInfo(defaultValue = "")
     var srsType: String = "",  // "" = 未设置, "domain" = 域名规则集, "ip" = IP规则集
+    @ColumnInfo(defaultValue = "0")
+    var srsAutoUpdate: Boolean = false,  // 是否自动更新规则集
+    @ColumnInfo(defaultValue = "0")
+    var srsLastUpdated: Long = 0L,       // 上次更新时间（秒）
 ) : Parcelable {
 
     fun displayName(): String {
