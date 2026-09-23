@@ -61,7 +61,7 @@ class TransProxyService : Service(), BaseService.Interface {
         }
 
         val appUid = applicationInfo.uid
-        val cmd = "APP_UID=$appUid TPROXY_PORT=${DataStore.tproxyPort} DNS_PORT=5353 sh ${scriptFile.absolutePath} $action"
+        val cmd = "APP_UID=$appUid TPROXY_PORT=${DataStore.tproxyPort} DNS_PORT=10336 sh ${scriptFile.absolutePath} $action"
         try {
             val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", cmd))
             val exitCode = proc.waitFor()
