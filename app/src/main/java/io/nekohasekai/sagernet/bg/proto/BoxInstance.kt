@@ -54,9 +54,7 @@ abstract class BoxInstance(
     }
 
     protected open suspend fun loadConfig() {
-        if (SingBoxBinary.isStandaloneMode()) {
-            return
-        }
+        if (SingBoxBinary.isStandaloneMode()) return
         box = Libcore.newSingBoxInstance(config.config, LocalResolverImpl)
     }
 
@@ -80,9 +78,7 @@ abstract class BoxInstance(
                     is HysteriaBean -> {
                         initPlugin("hysteria-plugin")
                         pluginConfigs[port] = profile.type to bean.buildHysteria1Config(port) {
-                            File(
-                                app.cacheDir, "hysteria_" + SystemClock.elapsedRealtime() + ".ca"
-                            ).apply {
+                            File(app.cacheDir, "hysteria_" + SystemClock.elapsedRealtime() + ".ca").apply {
                                 parentFile?.mkdirs()
                                 cacheFiles.add(this)
                             }
@@ -97,97 +93,58 @@ abstract class BoxInstance(
     override fun launch() {
         val cacheDir = File(SagerNet.application.cacheDir, "tmpcfg")
         cacheDir.mkdirs()
-
         for ((chain) in config.externalIndex) {
             chain.entries.forEachIndexed { index, (port, profile) ->
                 val bean = profile.requireBean()
-                val (profileType, config) = pluginConfigs[port] ?: (0 to "")
-
+                val (_, config) = pluginConfigs[port] ?: (0 to "")
                 when {
-                    externalInstances.containsKey(port) -> {
-                        externalInstances[port]!!.launch()
-                    }
+                    externalInstances.containsKey(port) -> externalInstances[port]!!.launch()
                     bean is TrojanGoBean -> {
-                        val configFile = File(
-                            cacheDir, "trojan_go_" + SystemClock.elapsedRealtime() + ".json"
-                        )
+                        val configFile = File(cacheDir, "trojan_go_" + SystemClock.elapsedRealtime() + ".json")
                         configFile.parentFile?.mkdirs()
                         configFile.writeText(config)
                         cacheFiles.add(configFile)
-                        processes.start(
-                            mutableListOf(
-                                initPlugin("trojan-go-plugin").path, "-config", configFile.absolutePath
-                            )
-                        )
+                        processes.start(mutableListOf(initPlugin("trojan-go-plugin").path, "-config", configFile.absolutePath))
                     }
                     bean is MieruBean -> {
-                        val configFile = File(
-                            cacheDir, "mieru_" + SystemClock.elapsedRealtime() + ".json"
-                        )
+                        val configFile = File(cacheDir, "mieru_" + SystemClock.elapsedRealtime() + ".json")
                         configFile.parentFile?.mkdirs()
                         configFile.writeText(config)
                         cacheFiles.add(configFile)
-                        val envMap = mutableMapOf<
-                            String, String
-                        >()
-                        envMap["MIERU_CONFIG_JSON_FILE"] = configFile.absolutePath
-                        envMap["MIERU_PROTECT_PATH"] = "protect_path"
-                        processes.start(
-                            mutableListOf(initPlugin("mieru-plugin").path, "run"), envMap
-                        )
+                        val envMap = mutableMapOf("MIERU_CONFIG_JSON_FILE" to configFile.absolutePath, "MIERU_PROTECT_PATH" to "protect_path")
+                        processes.start(mutableListOf(initPlugin("mieru-plugin").path, "run"), envMap)
                     }
                     bean is NaiveBean -> {
-                        val configFile = File(
-                            cacheDir, "naive_" + SystemClock.elapsedRealtime() + ".json"
-                        )
+                        val configFile = File(cacheDir, "naive_" + SystemClock.elapsedRealtime() + ".json")
                         configFile.parentFile?.mkdirs()
                         configFile.writeText(config)
                         cacheFiles.add(configFile)
                         val envMap = mutableMapOf<String, String>()
                         if (bean.certificates.isNotBlank()) {
-                            val certFile = File(
-                                cacheDir, "naive_" + SystemClock.elapsedRealtime() + ".crt"
-                            )
+                            val certFile = File(cacheDir, "naive_" + SystemClock.elapsedRealtime() + ".crt")
                             certFile.parentFile?.mkdirs()
                             certFile.writeText(bean.certificates)
                             cacheFiles.add(certFile)
                             envMap["SSL_CERT_FILE"] = certFile.absolutePath
                         }
-                        processes.start(
-                            mutableListOf(initPlugin("naive-plugin").path, configFile.absolutePath),
-                            envMap
-                        )
+                        processes.start(mutableListOf(initPlugin("naive-plugin").path, configFile.absolutePath), envMap)
                     }
                     bean is HysteriaBean -> {
-                        val configFile = File(
-                            cacheDir, "hysteria_" + SystemClock.elapsedRealtime() + ".json"
-                        )
+                        val configFile = File(cacheDir, "hysteria_" + SystemClock.elapsedRealtime() + ".json")
                         configFile.parentFile?.mkdirs()
                         configFile.writeText(config)
                         cacheFiles.add(configFile)
                         val commands = mutableListOf(
-                            initPlugin("hysteria-plugin").path,
-                            "--no-check",
-                            "--config",
-                            configFile.absolutePath,
-                            "--log-level",
-                            if (DataStore.logLevel > 0) "trace" else "warn",
-                            "client"
+                            initPlugin("hysteria-plugin").path, "--no-check", "--config", configFile.absolutePath,
+                            "--log-level", if (DataStore.logLevel > 0) "trace" else "warn", "client"
                         )
-                        if (bean.protocol == HysteriaBean.PROTOCOL_FAKETCP) {
-                            commands.addAll(0, listOf("su", "-c"))
-                        }
+                        if (bean.protocol == HysteriaBean.PROTOCOL_FAKETCP) commands.addAll(0, listOf("su", "-c"))
                         processes.start(commands)
                     }
                 }
             }
         }
-
-        if (SingBoxBinary.isStandaloneMode()) {
-            launchStandalone()
-        } else {
-            box.start()
-        }
+        if (SingBoxBinary.isStandaloneMode()) launchStandalone() else box.start()
     }
 
     private fun launchStandalone() {
@@ -199,11 +156,8 @@ abstract class BoxInstance(
         cfgFile.writeText(sanitizeConfigForStandalone(config.config))
         logFile.writeText("")
         cacheFiles.add(cfgFile)
-
         val workDir = app.getExternalFilesDir(null) ?: app.filesDir
-        val cmd = "cd '${workDir.absolutePath}' && " +
-            "exec '${bin.absolutePath}' run -c '${cfgFile.absolutePath}' " +
-            ">>'${logFile.absolutePath}' 2>&1"
+        val cmd = "cd '${workDir.absolutePath}' && exec '${bin.absolutePath}' run -c '${cfgFile.absolutePath}' >>'${logFile.absolutePath}' 2>&1"
         Logs.i("standalone sing-box: $cmd")
         processes.start(listOf("su", "-c", cmd))
     }
@@ -211,9 +165,7 @@ abstract class BoxInstance(
     private fun sanitizeConfigForStandalone(raw: String): String {
         val root = JSONObject(raw)
 
-        val legacyInboundKeys = listOf(
-            "sniff", "sniff_override_destination", "sniff_timeout", "domain_strategy"
-        )
+        val legacyInboundKeys = listOf("sniff", "sniff_override_destination", "sniff_timeout", "domain_strategy")
         var hadSniff = false
         val inbounds = root.optJSONArray("inbounds")
         if (inbounds != null) {
@@ -248,9 +200,7 @@ abstract class BoxInstance(
                     migrated.put(migrateDnsServer(s, fakeipObj))
                 }
                 dns.put("servers", migrated)
-                if (!dns.has("strategy") && firstStrategy != null) {
-                    dns.put("strategy", firstStrategy)
-                }
+                if (!dns.has("strategy") && firstStrategy != null) dns.put("strategy", firstStrategy)
             }
             dns.remove("fakeip")
             val dnsRules = dns.optJSONArray("rules")
@@ -258,8 +208,25 @@ abstract class BoxInstance(
                 for (i in 0 until dnsRules.length()) {
                     val r = dnsRules.optJSONObject(i) ?: continue
                     if (!r.has("action") && r.has("server")) r.put("action", "route")
+                    r.remove("outbound")
                 }
             }
+        }
+
+        val route = root.optJSONObject("route") ?: JSONObject().also { root.put("route", it) }
+        if (!route.has("default_domain_resolver")) {
+            val prefer = listOf("dns-local", "dns-direct", "local")
+            var chosen: String? = null
+            val servers = root.optJSONObject("dns")?.optJSONArray("servers")
+            if (servers != null) {
+                val tags = mutableListOf<String>()
+                for (i in 0 until servers.length()) {
+                    val t = servers.optJSONObject(i)?.optString("tag") ?: continue
+                    if (t.isNotEmpty()) tags.add(t)
+                }
+                chosen = prefer.firstOrNull { it in tags } ?: tags.firstOrNull()
+            }
+            if (chosen != null) route.put("default_domain_resolver", chosen)
         }
         return root.toString()
     }
@@ -270,12 +237,17 @@ abstract class BoxInstance(
                 s.put("domain_resolver", s.remove("address_resolver"))
             }
             s.remove("strategy")
+            val d0 = s.optString("detour")
+            if (d0 == "direct" || d0 == "bypass") s.remove("detour")
             return s
         }
         val address = s.optString("address", "")
         val out = JSONObject()
         if (s.has("tag")) out.put("tag", s.get("tag"))
-        if (s.has("detour")) out.put("detour", s.get("detour"))
+        if (s.has("detour")) {
+            val d = s.optString("detour")
+            if (d.isNotEmpty() && d != "direct" && d != "bypass") out.put("detour", d)
+        }
         val resolver = when {
             s.has("domain_resolver") -> s.get("domain_resolver")
             s.has("address_resolver") -> s.get("address_resolver")
@@ -347,12 +319,9 @@ abstract class BoxInstance(
 
     @Suppress("EXPERIMENTAL_API_USAGE")
     override fun close() {
-        for (instance in externalInstances.values) {
-            runCatching { instance.close() }
-        }
+        for (instance in externalInstances.values) runCatching { instance.close() }
         cacheFiles.removeAll { it.delete(); true }
         if (::processes.isInitialized) processes.close(GlobalScope + Dispatchers.IO)
         if (::box.isInitialized) box.close()
     }
-
 }
