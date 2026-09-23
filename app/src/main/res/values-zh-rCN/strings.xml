@@ -219,6 +219,8 @@
     <string name="route_srs_download_failed">规则集下载失败：%s</string>
     <string name="route_srs_name_empty">请先填写规则集文件名</string>
     <string name="route_srs_type">srs规则集类型</string>
+    <string name="route_srs_auto_update">srs规则集自动更新</string>
+    <string name="route_srs_auto_update_summary">开启后默认每 24 小时更新一次</string>
     <string name="route_final">Final</string>
     <string name="route_final_title">默认出站 (Final)</string>
     <string name="delete_route_prompt">您确定要移除此路由吗\?</string>
