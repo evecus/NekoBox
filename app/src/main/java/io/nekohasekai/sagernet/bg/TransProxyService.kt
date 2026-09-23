@@ -31,6 +31,12 @@ class TransProxyService : Service(), BaseService.Interface {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int =
         super<BaseService.Interface>.onStartCommand(intent, flags, startId)
 
+    // iptables pre-clean: clear any leftover rules before sing-box starts (override preInit)
+    override suspend fun preInit() {
+        runIptables("stop")   // no-op if rules don't exist; cleans up if last stop was missed
+        super.preInit()
+    }
+
     // iptables start: after sing-box is up (override lateInit)
     override suspend fun lateInit() {
         super.lateInit()
